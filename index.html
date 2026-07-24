@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LP Screener — Cek Kelayakan Token Sebelum LP</title>
+<style>
+  :root{
+    --bg:#0b0e11;
+    --card:#151920;
+    --card2:#1c2129;
+    --border:#262c36;
+    --text:#e8eaed;
+    --sub:#8b93a1;
+    --green:#00d395;
+    --red:#ff5c5c;
+    --yellow:#ffb84d;
+    --accent:#5b8cff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:28px 16px 80px;}
+  h1{font-size:22px;margin:0 0 4px;}
+  .sub{color:var(--sub);font-size:14px;margin-bottom:24px;}
+  .search-box{
+    display:flex;gap:8px;background:var(--card);border:1px solid var(--border);
+    border-radius:12px;padding:8px;margin-bottom:20px;
+  }
+  .search-box input{
+    flex:1;background:transparent;border:none;outline:none;color:var(--text);
+    font-size:15px;padding:10px 12px;font-family:monospace;
+  }
+  .search-box button{
+    background:var(--accent);color:#fff;border:none;border-radius:8px;
+    padding:10px 20px;font-weight:600;cursor:pointer;font-size:14px;
+  }
+  .search-box button:disabled{opacity:0.5;cursor:not-allowed;}
+  .msg{padding:12px 16px;border-radius:10px;font-size:14px;margin-bottom:16px;}
+  .msg.error{background:#3a1c1c;color:var(--red);border:1px solid #5c2a2a;}
+  .msg.info{background:#1c2a3a;color:#7fb0ff;border:1px solid #2a3f5c;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;}
+  .card h2{font-size:15px;margin:0 0 14px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+  .stat{background:var(--card2);border-radius:10px;padding:12px 14px;}
+  .stat .label{font-size:12px;color:var(--sub);}
+  .stat .value{font-size:18px;font-weight:700;margin-top:4px;}
+  .chart-wrap{border-radius:14px;overflow:hidden;border:1px solid var(--border);margin-bottom:16px;height:480px;}
+  .chart-wrap iframe{width:100%;height:100%;border:none;}
+  .verdict{
+    display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;margin-bottom:16px;
+    font-weight:700;font-size:16px;
+  }
+  .verdict.green{background:#0e2e26;border:1px solid #1a5c46;color:var(--green);}
+  .verdict.yellow{background:#332a12;border:1px solid #5c4a1a;color:var(--yellow);}
+  .verdict.red{background:#3a1c1c;border:1px solid #5c2a2a;color:var(--red);}
+  .verdict .score{font-size:13px;font-weight:400;color:var(--sub);}
+  .rule{
+    display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);
+  }
+  .rule:last-child{border-bottom:none;}
+  .rule .icon{font-size:16px;width:20px;flex-shrink:0;}
+  .rule .body .title{font-size:14px;font-weight:600;}
+  .rule .body .desc{font-size:13px;color:var(--sub);margin-top:2px;}
+  .pass .icon{color:var(--green);}
+  .fail .icon{color:var(--red);}
+  .warn .icon{color:var(--yellow);}
+  .na .icon{color:var(--sub);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
+  th{color:var(--sub);font-weight:600;font-size:12px;text-transform:uppercase;}
+  td.addr{font-family:monospace;font-size:12px;color:var(--sub);}
+  .tag{display:inline-block;background:var(--card2);border-radius:6px;padding:2px 6px;font-size:11px;color:var(--sub);margin-left:6px;}
+  .ai-box{white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--text);}
+  .ai-btn{
+    background:var(--card2);border:1px solid var(--border);color:var(--text);
+    padding:10px 16px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;
+  }
+  .ai-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .loader{
+    display:inline-block;width:16px;height:16px;border:2px solid var(--border);
+    border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .disclaimer{color:var(--sub);font-size:12px;margin-top:24px;line-height:1.6;}
+  .hidden{display:none;}
+
+  /* ===== Mascot ===== */
+  #mascotWrap{
+    position:fixed; right:18px; bottom:18px; z-index:999;
+    display:flex; align-items:flex-end; gap:10px;
+    pointer-events:none;
+  }
+  #mascotBubble{
+    background:#fff; color:#2a2a3a; padding:10px 14px; border-radius:16px;
+    font-size:13px; font-weight:600; max-width:190px; line-height:1.4;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    position:relative; margin-bottom:14px;
+    opacity:0; transform:translateY(6px); transition:opacity .4s, transform .4s;
+  }
+  #mascotBubble.show{opacity:1; transform:translateY(0);}
+  #mascotBubble:after{
+    content:''; position:absolute; right:26px; bottom:-8px;
+    border-width:8px 8px 0 0; border-style:solid; border-color:#fff transparent transparent transparent;
+  }
+  #mascotSvgBox{
+    width:92px; height:120px;
+    animation: mascotFloat 2.6s ease-in-out infinite;
+    filter: drop-shadow(0 8px 10px rgba(0,0,0,0.4));
+  }
+  @keyframes mascotFloat{
+    0%,100%{ transform: translateY(0) rotate(0deg); }
+    50%{ transform: translateY(-8px) rotate(-2deg); }
+  }
+  .mascot-eye{ animation: mascotBlink 4s ease-in-out infinite; transform-origin:center; }
+  .mascot-eye.right{ animation-delay:0.05s; }
+  @keyframes mascotBlink{
+    0%,92%,100%{ transform: scaleY(1); }
+    95%{ transform: scaleY(0.1); }
+  }
+  .mascot-arm-left{ animation: waveArm 1.8s ease-in-out infinite; transform-origin: 60% 20%; }
+  @keyframes waveArm{
+    0%,100%{ transform: rotate(0deg); }
+    50%{ transform: rotate(18deg); }
+  }
+  .mascot-hair{ animation: hairSway 3s ease-in-out infinite; transform-origin:top center; }
+  @keyframes hairSway{
+    0%,100%{ transform: rotate(0deg); }
+    50%{ transform: rotate(1.5deg); }
+  }
+  @media (max-width:640px){
+    #mascotSvgBox{ width:70px; height:92px; }
+    #mascotBubble{ max-width:140px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧪 LP Screener</h1>
+  <div class="sub">Tempel contract address (CA) token → chart otomatis muncul + semua rules keamanan LP dicek otomatis.</div>
+
+  <div class="search-box">
+    <input id="caInput" type="text" placeholder="Tempel contract address di sini... (EVM atau Solana)" />
+    <button id="analyzeBtn" onclick="analyzeToken()">Analisa</button>
+  </div>
+
+  <div id="messages"></div>
+  <div id="results" class="hidden">
+
+    <div id="verdictBox"></div>
+
+    <div class="chart-wrap" id="chartWrap"></div>
+
+    <div class="card">
+      <h2>Market Stats</h2>
+      <div class="stats-grid" id="statsGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Checklist Keamanan & Rules LP</h2>
+      <div id="checklist"></div>
+    </div>
+
+    <div class="card">
+      <h2>Top 10 Holder</h2>
+      <div id="holdersTable"></div>
+    </div>
+
+    <div class="card">
+      <h2>Ringkasan AI</h2>
+      <button class="ai-btn" id="aiBtn" onclick="getAISummary()">✨ Generate Ringkasan AI</button>
+      <div style="margin-top:14px;" class="ai-box" id="aiBox"></div>
+    </div>
+
+  </div>
+
+  <div class="disclaimer">
+    ⚠️ Bukan saran finansial. Data diambil otomatis dari DexScreener &amp; GoPlus Security API secara real-time — selalu DYOR (Do Your Own Research) sebelum menyediakan likuiditas. LP tetap memiliki risiko impermanent loss, rug pull, dan smart contract risk meskipun semua rules di atas "lolos".
+  </div>
+</div>
+
+<!-- Maskot Anime -->
+<div id="mascotWrap">
+  <div id="mascotBubble">Halo! Tempel CA token, aku bantu cek dulu ya~ ✨</div>
+  <div id="mascotSvgBox">
+    <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
+      <!-- hair back -->
+      <g class="mascot-hair">
+        <path d="M20 40 C15 20, 30 5, 50 5 C70 5, 85 20, 80 40 L82 75 C82 85, 74 92, 66 88 L66 55 L34 55 L34 88 C26 92, 18 85, 18 75 Z" fill="#8a5cff"/>
+      </g>
+      <!-- body / dress -->
+      <path d="M32 78 C32 70, 68 70, 68 78 L74 122 C74 127, 26 127, 26 122 Z" fill="#ff8fc4"/>
+      <!-- left arm (waving) -->
+      <g class="mascot-arm-left">
+        <rect x="14" y="80" width="10" height="30" rx="5" fill="#ffe0c2"/>
+      </g>
+      <!-- right arm -->
+      <rect x="76" y="82" width="10" height="28" rx="5" fill="#ffe0c2"/>
+      <!-- neck+face -->
+      <circle cx="50" cy="45" r="27" fill="#ffe0c2"/>
+      <!-- hair front bangs -->
+      <path d="M23 38 C25 15, 40 8, 50 8 C60 8, 75 15, 77 38 C68 28, 60 34, 50 30 C40 34, 32 28, 23 38 Z" fill="#8a5cff"/>
+      <!-- twin tails -->
+      <ellipse cx="14" cy="55" rx="9" ry="20" fill="#8a5cff"/>
+      <ellipse cx="86" cy="55" rx="9" ry="20" fill="#8a5cff"/>
+      <!-- eyes -->
+      <ellipse class="mascot-eye left" cx="41" cy="46" rx="4.5" ry="6" fill="#2a2a3a"/>
+      <ellipse class="mascot-eye right" cx="59" cy="46" rx="4.5" ry="6" fill="#2a2a3a"/>
+      <circle cx="42.5" cy="43" r="1.4" fill="#fff"/>
+      <circle cx="60.5" cy="43" r="1.4" fill="#fff"/>
+      <!-- blush -->
+      <ellipse cx="33" cy="54" rx="4" ry="2.4" fill="#ff9fc9" opacity="0.7"/>
+      <ellipse cx="67" cy="54" rx="4" ry="2.4" fill="#ff9fc9" opacity="0.7"/>
+      <!-- mouth -->
+      <path id="mascotMouth" d="M45 58 Q50 62 55 58" stroke="#c76a8f" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+let lastPayload = null;
+
+function updateMascot(status){
+  const bubble = document.getElementById('mascotBubble');
+  const mouth = document.getElementById('mascotMouth');
+  let text = 'Hasilnya sudah keluar, cek yuk~';
+  let mouthPath = 'M45 58 Q50 62 55 58';
+  if(status==='green'){ text = 'Yeay~ token ini lolos banyak rules! Tetap DYOR ya ✨'; mouthPath = 'M44 57 Q50 64 56 57'; }
+  else if(status==='yellow'){ text = 'Hmm, ada beberapa yang perlu diwaspadai nih 👀'; mouthPath = 'M45 59 L55 59'; }
+  else if(status==='red'){ text = 'Waduh! Ini banyak red flag-nya, hati-hati banget ya 😳'; mouthPath = 'M45 60 Q50 55 55 60'; }
+  bubble.textContent = text;
+  bubble.classList.remove('show');
+  requestAnimationFrame(()=>bubble.classList.add('show'));
+  if(mouth) mouth.setAttribute('d', mouthPath);
+}
+
+function showMessage(text, type){
+  document.getElementById('messages').innerHTML = `<div class="msg ${type}">${text}</div>`;
+}
+function clearMessage(){ document.getElementById('messages').innerHTML = ''; }
+
+function fmtUsd(n){
+  if(n===undefined||n===null||isNaN(n)) return '-';
+  if(n>=1e9) return '$'+(n/1e9).toFixed(2)+'B';
+  if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M';
+  if(n>=1e3) return '$'+(n/1e3).toFixed(1)+'K';
+  return '$'+n.toFixed(2);
+}
+function fmtPct(n){
+  if(n===undefined||n===null||isNaN(n)) return '-';
+  return n.toFixed(2)+'%';
+}
+
+async function analyzeToken(){
+  const address = document.getElementById('caInput').value.trim();
+  if(!address){ showMessage('Masukkan contract address dulu.', 'error'); return; }
+  clearMessage();
+  document.getElementById('results').classList.add('hidden');
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzeBtn').textContent = 'Memuat...';
+  const bubble = document.getElementById('mascotBubble');
+  bubble.textContent = 'Tunggu bentar, aku cek dulu ya... 🔍';
+  bubble.classList.remove('show'); requestAnimationFrame(()=>bubble.classList.add('show'));
+
+  try{
+    const dsRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
+    const dsData = await dsRes.json();
+    if(!dsData.pairs || dsData.pairs.length===0){
+      showMessage('Token tidak ditemukan di DexScreener. Pastikan CA benar dan sudah punya pool likuiditas.', 'error');
+      return;
+    }
+    const pair = dsData.pairs.sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0))[0];
+    renderChart(pair.chainId, pair.pairAddress);
+    renderStats(pair);
+
+    let security = null, isSolana = pair.chainId === 'solana';
+    const chainMap = {ethereum:1,bsc:56,polygon:137,arbitrum:42161,avalanche:43114,base:8453,optimism:10,fantom:250};
+
+    if(isSolana){
+      const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${address}`);
+      const gpData = await gpRes.json();
+      security = gpData.result ? gpData.result[address] : null;
+      renderSolanaChecklist(security, pair);
+      renderSolanaHolders(security);
+    } else {
+      const gpChain = chainMap[pair.chainId];
+      if(!gpChain){
+        showMessage(`Chain "${pair.chainId}" belum didukung untuk security scan otomatis. Chart tetap ditampilkan.`, 'info');
+        document.getElementById('checklist').innerHTML = '<div class="rule na"><span class="icon">•</span><div class="body"><div class="title">Security scan tidak tersedia untuk chain ini</div></div></div>';
+        document.getElementById('holdersTable').innerHTML = '-';
+      } else {
+        const lower = address.toLowerCase();
+        const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/token_security/${gpChain}?contract_addresses=${lower}`);
+        const gpData = await gpRes.json();
+        security = gpData.result ? gpData.result[lower] : null;
+        renderEvmChecklist(security, pair);
+        renderEvmHolders(security);
+      }
+    }
+
+    lastPayload = { pair, security, isSolana };
+    document.getElementById('aiBox').innerHTML = '';
+    document.getElementById('results').classList.remove('hidden');
+
+  } catch(e){
+    showMessage('Terjadi error: '+e.message, 'error');
+  } finally {
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('analyzeBtn').textContent = 'Analisa';
+  }
+}
+
+function renderChart(chainId, pairAddress){
+  document.getElementById('chartWrap').innerHTML =
+    `<iframe src="https://dexscreener.com/${chainId}/${pairAddress}?embed=1&theme=dark&trades=0&info=0" loading="lazy"></iframe>`;
+}
+
+function renderStats(pair){
+  const items = [
+    ['Liquidity', fmtUsd(pair.liquidity?.usd)],
+    ['Volume 24h', fmtUsd(pair.volume?.h24)],
+    ['Price Change 24h', fmtPct(pair.priceChange?.h24)],
+    ['Market Cap / FDV', fmtUsd(pair.fdv || pair.marketCap)],
+    ['Buys / Sells 24h', `${pair.txns?.h24?.buys ?? '-'} / ${pair.txns?.h24?.sells ?? '-'}`],
+    ['Umur Pool', pair.pairCreatedAt ? timeAgo(pair.pairCreatedAt) : '-'],
+  ];
+  document.getElementById('statsGrid').innerHTML = items.map(([l,v])=>
+    `<div class="stat"><div class="label">${l}</div><div class="value">${v}</div></div>`
+  ).join('');
+}
+
+function timeAgo(ts){
+  const diffH = (Date.now()-ts)/3600000;
+  if(diffH<24) return diffH.toFixed(1)+' jam';
+  return (diffH/24).toFixed(1)+' hari';
+}
+
+function ruleHtml(status, title, desc){
+  const icon = status==='pass'?'✅':status==='fail'?'❌':status==='warn'?'⚠️':'•';
+  return `<div class="rule ${status}"><span class="icon">${icon}</span><div class="body"><div class="title">${title}</div><div class="desc">${desc}</div></div></div>`;
+}
+
+function renderVerdict(passCount, applicable){
+  const pct = applicable>0 ? (passCount/applicable*100) : 0;
+  let cls='red', label='🔴 Risiko Tinggi — sebaiknya dihindari untuk LP';
+  if(pct>=80){ cls='green'; label='🟢 Layak dipertimbangkan (tetap DYOR)'; }
+  else if(pct>=50){ cls='yellow'; label='🟡 Perlu kehati-hatian ekstra'; }
+  document.getElementById('verdictBox').innerHTML =
+    `<div class="verdict ${cls}">${label} <span class="score">(${passCount}/${applicable} rules lolos)</span></div>`;
+  updateMascot(cls);
+}
+
+function pctNum(v){ return v===undefined||v===null||v===''?null:parseFloat(v); }
+
+function renderEvmChecklist(sec, pair){
+  const rules = [];
+  let pass=0, applicable=0;
+  const add = (status, title, desc)=>{ rules.push(ruleHtml(status,title,desc)); if(status!=='na'){applicable++; if(status==='pass')pass++;} };
+
+  if(!sec){
+    document.getElementById('checklist').innerHTML = ruleHtml('na','Data security tidak tersedia','GoPlus tidak mengembalikan data untuk token ini.');
+    renderVerdict(0,1);
+    return;
+  }
+
+  add(sec.is_open_source==='1'?'pass':'fail','Contract Verified', sec.is_open_source==='1'?'Source code sudah open source / verified.':'Contract belum diverifikasi — risiko tinggi, kode tersembunyi.');
+  add(sec.is_mintable==='1'?'fail':'pass','Fungsi Mint', sec.is_mintable==='1'?'Owner masih bisa mint token baru tanpa batas — risiko supply membengkak.':'Tidak ada fungsi mint tak terbatas.');
+
+  const ownerRenounced = !sec.owner_address || sec.owner_address==='0x0000000000000000000000000000000000000000' || sec.can_take_back_ownership==='0';
+  add(ownerRenounced?'pass':'warn','Ownership', ownerRenounced?'Ownership sudah renounced / tidak bisa diambil kembali.':'Owner masih memegang kontrol penuh atas contract.');
+
+  add(sec.is_honeypot==='1'?'fail':'pass','Honeypot Check', sec.is_honeypot==='1'?'TERINDIKASI HONEYPOT — token bisa dibeli tapi tidak bisa dijual!':'Tidak terindikasi honeypot.');
+
+  const buyTax = pctNum(sec.buy_tax)*100, sellTax = pctNum(sec.sell_tax)*100;
+  const taxOk = (buyTax<=10 && sellTax<=10);
+  add(taxOk?'pass':'warn','Buy/Sell Tax', `Buy tax ${isNaN(buyTax)?'-':buyTax.toFixed(1)+'%'}, sell tax ${isNaN(sellTax)?'-':sellTax.toFixed(1)+'%'}.`);
+
+  add(sec.cannot_sell_all==='1'?'fail':'pass','Bisa Jual Semua', sec.cannot_sell_all==='1'?'Ada batasan tidak bisa jual semua token sekaligus.':'Tidak ada batasan jual.');
+  add(sec.transfer_pausable==='1'?'warn':'pass','Transfer Pausable', sec.transfer_pausable==='1'?'Owner bisa menghentikan transfer sewaktu-waktu.':'Transfer tidak bisa di-pause sepihak.');
+  add(sec.is_blacklisted==='1'?'warn':'pass','Fungsi Blacklist', sec.is_blacklisted==='1'?'Contract punya fungsi blacklist wallet.':'Tidak ada fungsi blacklist.');
+
+  let lpLocked='na', lpDesc='Data LP lock tidak tersedia.';
+  if(sec.lp_holders && sec.lp_holders.length){
+    const lockedPct = sec.lp_holders.filter(h=>h.is_locked==1).reduce((a,h)=>a+parseFloat(h.percent||0),0)*100;
+    lpLocked = lockedPct>=50 ? 'pass' : 'fail';
+    lpDesc = `${lockedPct.toFixed(1)}% LP terkunci/burned.`;
+  }
+  add(lpLocked, 'LP Locked/Burned', lpDesc);
+
+  let top10='na', top10Desc='Data holder tidak tersedia.';
+  if(sec.holders && sec.holders.length){
+    const relevant = sec.holders.filter(h=>!(h.tag||'').toLowerCase().includes('burn'));
+    const sum = relevant.slice(0,10).reduce((a,h)=>a+parseFloat(h.percent||0),0)*100;
+    top10 = sum<=50 ? 'pass' : sum<=70 ? 'warn' : 'fail';
+    top10Desc = `Top 10 holder (di luar burn address) memegang ${sum.toFixed(1)}% supply.`;
+  }
+  add(top10, 'Konsentrasi Holder', top10Desc);
+
+  const liq = pair.liquidity?.usd || 0;
+  add(liq>=10000?'pass':liq>=2000?'warn':'fail','Ukuran Likuiditas', `TVL pool saat ini ${fmtUsd(liq)}.`);
+
+  const vol = pair.volume?.h24 || 0;
+  const ratio = liq>0 ? (vol/liq*100) : 0;
+  add(ratio>=10?'pass':'warn','Volume / TVL Ratio', `Volume 24h setara ${ratio.toFixed(1)}% dari TVL pool.`);
+
+  document.getElementById('checklist').innerHTML = rules.join('');
+  renderVerdict(pass, applicable);
+}
+
+function renderEvmHolders(sec){
+  if(!sec || !sec.holders || !sec.holders.length){
+    document.getElementById('holdersTable').innerHTML = 'Data tidak tersedia.';
+    return;
+  }
+  const rows = sec.holders.slice(0,10).map((h,i)=>
+    `<tr><td>${i+1}</td><td class="addr">${h.address}</td><td>${(parseFloat(h.percent||0)*100).toFixed(2)}%${h.tag?`<span class="tag">${h.tag}</span>`:''}</td></tr>`
+  ).join('');
+  document.getElementById('holdersTable').innerHTML = `<table><tr><th>#</th><th>Address</th><th>% Supply</th></tr>${rows}</table>`;
+}
+
+function renderSolanaChecklist(sec, pair){
+  const rules = [];
+  let pass=0, applicable=0;
+  const add = (status, title, desc)=>{ rules.push(ruleHtml(status,title,desc)); if(status!=='na'){applicable++; if(status==='pass')pass++;} };
+
+  if(!sec){
+    document.getElementById('checklist').innerHTML = ruleHtml('na','Data security tidak tersedia','GoPlus tidak mengembalikan data untuk token ini.');
+    renderVerdict(0,1);
+    return;
+  }
+
+  const mintOn = sec.mintable?.status==='1';
+  add(mintOn?'fail':'pass','Mint Authority', mintOn?'Mint authority masih aktif — supply bisa ditambah kapan saja.':'Mint authority sudah di-revoke.');
+
+  const freezeOn = sec.freezable?.status==='1';
+  add(freezeOn?'fail':'pass','Freeze Authority', freezeOn?'Freeze authority masih aktif — wallet holder bisa dibekukan sepihak.':'Freeze authority sudah di-revoke.');
+
+  add(sec.closable?.status==='1'?'warn':'pass','Closable Account', sec.closable?.status==='1'?'Akun token bisa ditutup oleh authority.':'Akun token tidak bisa ditutup sepihak.');
+  add(sec.transfer_fee_upgradable?.status==='1'?'warn':'pass','Transfer Fee Upgradable', sec.transfer_fee_upgradable?.status==='1'?'Fee transfer bisa diubah sewaktu-waktu oleh authority.':'Fee transfer tidak bisa diubah sepihak.');
+  add(sec.non_transferable==='1'?'fail':'pass','Bisa Transfer', sec.non_transferable==='1'?'Token TIDAK bisa ditransfer — sangat berbahaya.':'Token bisa ditransfer normal.');
+
+  let lpLocked='na', lpDesc='Data LP lock tidak tersedia.';
+  if(sec.lp_holders && sec.lp_holders.length){
+    const lockedPct = sec.lp_holders.filter(h=>h.is_locked==1).reduce((a,h)=>a+parseFloat(h.percent||0),0)*100;
+    lpLocked = lockedPct>=50 ? 'pass' : 'fail';
+    lpDesc = `${lockedPct.toFixed(1)}% LP terkunci/burned.`;
+  }
+  add(lpLocked, 'LP Locked/Burned', lpDesc);
+
+  let top10='na', top10Desc='Data holder tidak tersedia.';
+  const rate = sec.top_10_holder_rate!==undefined ? parseFloat(sec.top_10_holder_rate)*100 : null;
+  if(rate!==null){
+    top10 = rate<=50?'pass':rate<=70?'warn':'fail';
+    top10Desc = `Top 10 holder memegang ${rate.toFixed(1)}% supply.`;
+  }
+  add(top10, 'Konsentrasi Holder', top10Desc);
+
+  const liq = pair.liquidity?.usd || 0;
+  add(liq>=10000?'pass':liq>=2000?'warn':'fail','Ukuran Likuiditas', `TVL pool saat ini ${fmtUsd(liq)}.`);
+
+  const vol = pair.volume?.h24 || 0;
+  const ratio = liq>0 ? (vol/liq*100) : 0;
+  add(ratio>=10?'pass':'warn','Volume / TVL Ratio', `Volume 24h setara ${ratio.toFixed(1)}% dari TVL pool.`);
+
+  document.getElementById('checklist').innerHTML = rules.join('');
+  renderVerdict(pass, applicable);
+}
+
+function renderSolanaHolders(sec){
+  if(!sec || !sec.holders || !sec.holders.length){
+    document.getElementById('holdersTable').innerHTML = 'Data tidak tersedia.';
+    return;
+  }
+  const rows = sec.holders.slice(0,10).map((h,i)=>
+    `<tr><td>${i+1}</td><td class="addr">${h.address}</td><td>${(parseFloat(h.percent||0)*100).toFixed(2)}%${h.tag?`<span class="tag">${h.tag}</span>`:''}</td></tr>`
+  ).join('');
+  document.getElementById('holdersTable').innerHTML = `<table><tr><th>#</th><th>Address</th><th>% Supply</th></tr>${rows}</table>`;
+}
+
+async function getAISummary(){
+  if(!lastPayload){ return; }
+  const btn = document.getElementById('aiBtn');
+  btn.disabled = true;
+  document.getElementById('aiBox').innerHTML = '<span class="loader"></span> Menganalisis...';
+  try{
+    const res = await fetch('/api/analyze', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(lastPayload)
+    });
+    const data = await res.json();
+    if(data.error){
+      document.getElementById('aiBox').innerHTML = `<span style="color:var(--red)">${data.error}</span>`;
+    } else {
+      document.getElementById('aiBox').innerText = data.summary;
+    }
+  } catch(e){
+    document.getElementById('aiBox').innerHTML = `<span style="color:var(--red)">Gagal memuat ringkasan AI: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('caInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') analyzeToken();
+});
+</script>
+</body>
+</html>
