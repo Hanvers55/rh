@@ -278,7 +278,7 @@ async function analyzeToken(){
     renderStats(pair);
 
     let security = null, isSolana = pair.chainId === 'solana';
-    const chainMap = {ethereum:1,bsc:56,polygon:137,arbitrum:42161,avalanche:43114,base:8453,optimism:10,fantom:250};
+    const chainMap = {ethereum:1,bsc:56,polygon:137,arbitrum:42161,avalanche:43114,base:8453,optimism:10,fantom:250,robinhood:4663};
 
     if(isSolana){
       const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${address}`);
